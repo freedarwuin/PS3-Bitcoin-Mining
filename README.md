@@ -1,42 +1,37 @@
 # PS3-Bitcoin-Mining
-PS3 bitcoin mining test program in assembler for Cell/BE processor.
+Programa de prueba de minería de bitcoins para PS3 en ensamblador para el procesador Cell/BE.
 
-_(I know a PS3 is a slow Bitcoin mining rig by current standards, but i wanted to see if i could get it to work)_
+(Sé que una PS3 es una plataforma de minería de Bitcoin lenta según los estándares actuales, pero quería ver si podía hacerla funcionar)
 
-This program is written for the Cell/BE processor which is in the PS3 game console.  The Cell/BE processor is also available in the IBM QS20 Blade, which is deployed in the IBM Blade Center chassis.  This source code should be able to be used on the QS20; the tool chain may need to be adapted, since this PS3 is is running a very old version of Linux and the GNU compiler toolkit.  
+Este programa está escrito para el procesador Cell/BE que está en la consola de juegos PS3. El procesador Cell/BE también está disponible en el IBM QS20 Blade, que está implementado en el chasis IBM Blade Center. Este código fuente debería poder usarse en el QS20; es posible que sea necesario adaptar la cadena de herramientas, ya que esta PS3 ejecuta una versión muy antigua de Linux y el kit de herramientas del compilador GNU.
 
-If someone out there has a Blade Center with a QS20 blade, and would let me ssh into it, I'd be happy to port, test and scale the code.
+Si alguien tiene un Blade Center con un blade QS20 y me permite acceder a él por SSH, estaré encantado de portar, probar y escalar el código.
 
-The Cell/BE processor is a dual-core PPC (Power PC) chip, clocked at 3.2Ghz.  There is one Cell/BE in the PS3, there are 2 in an IBM QS20 blade.  The PS3 has 256 Mb of memory, which is not a huge amount of memory, but more than enough for bitcoin mining.  Cell/BE chips are manufactured with 8 SPEs (Synergistic Processing Elements) attached.  On the PS3, Linux identifies 7 of the SPEs, reserves one for the System, leaving application developers with access to 6 of the SPEs.  
+El procesador Cell/BE es un chip PPC (Power PC) de doble núcleo, con una frecuencia de reloj de 3,2 GHz. Hay un Cell/BE en el PS3, hay 2 en un blade IBM QS20. El PS3 tiene 256 Mb de memoria, que no es una gran cantidad de memoria, pero más que suficiente para la minería de bitcoins. Los chips Cell/BE se fabrican con 8 SPE (elementos de procesamiento sinérgico) conectados. En el PS3, Linux identifica 7 de los SPE, reserva uno para el sistema y deja a los desarrolladores de aplicaciones con acceso a 6 de los SPE.
 
-Each SPE is actually a 4-way vector processor which can be programmed in the SIMD (Single Instruction Multiple Data) model.  The processor loads and stores data in quadwords (4 x 32 bit words).  SIMD refers to the fact that each operation, 
-say an add or a multiply, is applied to all 4 elements of the quadword simultaneously.  Each of the 32-bit words in 
-the quadword are referred to as lanes, and each instruction executes simultaneously on all 4 lanes. Given the 
-right problem, algorithm and implementation, vector processing on the Cell/BE executes 4 times as much work per 
-CPU instruction as a standard scalar processor.  
+Cada SPE es en realidad un procesador vectorial de 4 vías que se puede programar en el modelo SIMD (instrucción única, múltiples datos). El procesador carga y almacena datos en palabras cuaternarias (palabras de 4 x 32 bits). SIMD se refiere al hecho de que cada operación, por ejemplo, una suma o una multiplicación, se aplica a los 4 elementos de la palabra cuaternaria simultáneamente. Cada una de las palabras de 32 bits de la palabra cuaternaria se denomina carriles y cada instrucción se ejecuta simultáneamente en los 4 carriles. Dado el problema, el algoritmo y la implementación correctos, el procesamiento vectorial en Cell/BE ejecuta 4 veces más trabajo por instrucción de CPU que un procesador escalar estándar.
 
-There are several challenges to programming the SPE processor.  SPEs do not have direct access to PPC memory. The SPE has a very small amount of local memory - only 128k.  Data is moved from the PPC memory to the SPE memory with a sort of DMA programming.  Bitcoin mining sidesteps this problem.  When mining, all the data necessary for the calculations is assembled into a C struct and DMAed from PPC system memory to the SPE local memory in one chunk as the assembly language function is invoked.  
+La programación del procesador SPE presenta varios desafíos. Los SPE no tienen acceso directo a la memoria PPC. El SPE tiene una cantidad muy pequeña de memoria local: solo 128k. Los datos se mueven de la memoria PPC a la memoria SPE con una especie de programación DMA. La minería de Bitcoin evita este problema. Al minar, todos los datos necesarios para los cálculos se ensamblan en una estructura C y se transfieren por DMA desde la memoria del sistema PPC a la memoria local SPE en un solo fragmento a medida que se invoca la función de lenguaje ensamblador.
 
-In bitcoin mining the SHA256 checksum is calculated from a relatively small chunk of data.  If the SHA256 does not meet the difficulty level, a 32-bit integer field in the data is incrememted and the SHA256 is calculated again.  Continue to iterate like this until all 2B combinations have been tried or a winning SHA256 -- one that is less than the difficulty is found. 
+En la minería de Bitcoin, la suma de comprobación SHA256 se calcula a partir de un fragmento relativamente pequeño de datos. Si el SHA256 no cumple con el nivel de dificultad, se incrementa un campo entero de 32 bits en los datos y se calcula nuevamente el SHA256. Continúe iterando de esta manera hasta que se hayan probado todas las combinaciones 2B o se encuentre un SHA256 ganador, uno que sea menor que la dificultad.
 
-The there are a few challenging aspects of SIMD programming.  One point to note is that you really have to have an embarassingly parallel problem to get the full effect of SIMD programming - processing 4 data elements at a time.  If you have a lot of decision logic or other scalar code, you will not see a huge benefit from SIMD programming.    
+Existen algunos aspectos desafiantes de la programación SIMD. Un punto a tener en cuenta es que realmente debe tener un problema vergonzosamente paralelo para obtener el efecto completo de la programación SIMD: procesar 4 elementos de datos a la vez. Si tiene mucha lógica de decisión u otro código escalar, no verá un gran beneficio de la programación SIMD.
 
-As it turns out calculating SHA256 for Bitcoin Mining is a great match for the Cell/BE architecture.
+Resulta que calcular SHA256 para la minería de Bitcoin es una gran combinación para la arquitectura Cell/BE.
 
-Calculating SHA256 is done in the assembly code - and the instructions need to be effectively scheduled.  Obviously the C compiler can reorder the instructions and speed up execution, this has to be done by hand when writing assembler code.  
+El cálculo de SHA256 se realiza en el código ensamblador y las instrucciones deben programarse de manera efectiva. Obviamente, el compilador de C puede reordenar las instrucciones y acelerar la ejecución, esto debe hacerse a mano al escribir el código ensamblador.
 
--- more to come.
-Current Test Driver:
-this is a C program with the second block (block number 1), basically hard coded into the program. the block is formatted into a struct and passed to the assembly routine.  
+-- habrá más información.
+Controlador de prueba actual:
+este es un programa C con el segundo bloque (bloque número 1), básicamente codificado en el programa. El bloque se formatea en una estructura y se pasa a la rutina de ensamblaje.
 
-the assembly routine can call code from the C libraries, basically the entire thing was debugged via printf(s), since there is no debugger which supports the SPEs available in the old version of Yellow Dog Linux (6.2) which I'm using.  
+La rutina de ensamblaje puede llamar código de las bibliotecas C, básicamente todo se depuró mediante printf(s), ya que no hay un depurador que admita los SPE disponibles en la versión anterior de Yellow Dog Linux (6.2) que estoy usando.
 
-References:
-
+Referencias:
 
 TODO:
-* get better timing information for a single process version of the program.  Bitcoin is a "double SHA256 hash" where the resulting SHA-256 is hashed again.  a single processor can do 2.5 million hashes per second, giving 1.25 million Bitcoin double hashes per second. 
-* write a test driver that can feed in more test cases.  currently one test case is hard-coded in drive.c
-* write a driver that can run the test cases in parallel.
-* continue to look at the instruction scheduling with /opt/cell/sdk/usr/bin/spu_timing
-* better comments, as we mix the instructions for the different parts of the algorithm, it _will_ get confusing. 
+* obtener mejor información de tiempo para una versión de proceso único del programa. Bitcoin es un "hash SHA256 doble" donde el SHA-256 resultante se vuelve a codificar. Un solo procesador puede hacer 2,5 millones de hashes por segundo, lo que da 1,25 millones de hashes dobles de Bitcoin por segundo.
+* escribir un controlador de prueba que pueda alimentar más casos de prueba. Actualmente, un caso de prueba está codificado en drive.c
+* escribir un controlador que pueda ejecutar los casos de prueba en paralelo.
+* continuar observando la programación de instrucciones con /opt/cell/sdk/usr/bin/spu_timing
+* mejores comentarios, a medida que mezclamos las instrucciones para las diferentes partes del algoritmo, _será_ confuso.
